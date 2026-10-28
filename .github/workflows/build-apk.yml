@@ -14,11 +14,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
       - name: Build debug APK
-        run: gradle --no-daemon clean assembleDebug --stacktrace
+        run: gradle --no-daemon clean :app:assembleDebug --stacktrace
       - name: Validate APK package, contents and signature
         shell: bash
         run: |
