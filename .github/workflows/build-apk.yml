@@ -14,20 +14,42 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      # GitHub's Ubuntu runner already provides the Android SDK.
-      - name: Verify Android SDK
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          test -d "$ANDROID_HOME"
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
       - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
-      - name: Upload installable APK
+        run: gradle --no-daemon clean assembleDebug --stacktrace
+      - name: Validate APK package, contents and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" | tail -n 2
+          unzip -Z1 "$APK" | tee apk-contents.txt
+          grep -Fxq 'assets/index.html' apk-contents.txt
+          grep -Fxq 'classes.dex' apk-contents.txt
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee apk-signature.txt
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee apk-package.txt
+          grep -q "package: name='com.quotesnap.app'" apk-package.txt
+          grep -q "launchable-activity: name='com.quotesnap.app.MainActivity'" apk-package.txt
+          sha256sum "$APK" | tee apk-sha256.txt
+          ls -lh "$APK"
+      - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: QuoteSnap-Android-APK
+          name: QuoteSnap-Android-APK-Verified
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Upload APK verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuoteSnap-APK-Diagnostics
+          path: |
+            apk-contents.txt
+            apk-signature.txt
+            apk-package.txt
+            apk-sha256.txt
+          if-no-files-found: ignore
