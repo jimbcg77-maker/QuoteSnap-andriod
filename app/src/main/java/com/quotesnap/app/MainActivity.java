@@ -11,6 +11,8 @@ import android.webkit.WebViewClient;
 import android.webkit.WebSettings;
 import android.print.PrintManager;
 import android.content.Context;
+import android.widget.TextView;
+import android.util.Log;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -19,12 +21,13 @@ public class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        try {
         webView = new WebView(this);
         setContentView(webView);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(false);
+        settings.setAllowFileAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         webView.setWebViewClient(new WebViewClient());
@@ -42,6 +45,13 @@ public class MainActivity extends Activity {
             }
         });
         webView.loadUrl("file:///android_asset/index.html");
+        } catch (Exception e) {
+            Log.e("QuoteSnapStartup", "Unable to initialize WebView", e);
+            TextView error = new TextView(this);
+            error.setText("QuoteSnap startup failed: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            error.setPadding(24, 48, 24, 24);
+            setContentView(error);
+        }
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
