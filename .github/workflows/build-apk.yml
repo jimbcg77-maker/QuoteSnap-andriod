@@ -3,38 +3,26 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Extract QuoteSnap source
-        run: unzip -q QuoteSnap-Android-Project-2.zip -d extracted
-      - name: Update Android target SDK to 35
-        run: |
-          BUILD_FILE=$(find extracted -path '*/app/build.gradle' -type f | head -n 1)
-          test -n "$BUILD_FILE" || { echo 'Missing app/build.gradle'; exit 1; }
-          sed -i -E 's/targetSdk[[:space:]]+[0-9]+/targetSdk 35/' "$BUILD_FILE"
-          grep -q 'targetSdk 35' "$BUILD_FILE"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Configure Android SDK
-        run: |
-          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-          yes | sdkmanager --licenses >/dev/null || true
+      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build APK
-        run: |
-          PROJECT_SETTINGS=$(find extracted -name settings.gradle -type f | head -n 1)
-          test -n "$PROJECT_SETTINGS" || { echo 'Missing settings.gradle in ZIP'; exit 1; }
-          cd "$(dirname "$PROJECT_SETTINGS")"
-          gradle :app:assembleDebug --no-daemon --stacktrace
-      - uses: actions/upload-artifact@v4
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
         with:
-          name: QuoteSnap-debug-apk
-          path: extracted/**/app/build/outputs/apk/debug/*.apk
+          name: QuoteSnap-Android-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
